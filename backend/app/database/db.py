@@ -17,10 +17,6 @@ SessionLocal = sessionmaker(
 )
 
 
-# -----------------------------------
-# GET DB SESSION
-# -----------------------------------
-
 def get_db():
 
     db = SessionLocal()
