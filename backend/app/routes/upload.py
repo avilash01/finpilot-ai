@@ -18,6 +18,7 @@ from app.models.expense import (
 )
 
 import pytesseract
+import platform
 import shutil
 import os
 
@@ -25,10 +26,16 @@ import os
 router = APIRouter()
 
 
-# Tesseract path
-pytesseract.pytesseract.tesseract_cmd = (
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
+# ----------------------------
+# TESSERACT PATH
+# ----------------------------
+
+if platform.system() == "Windows":
+    pytesseract.pytesseract.tesseract_cmd = (
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    )
+else:
+    pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 
 
 UPLOAD_DIR = "uploads"
