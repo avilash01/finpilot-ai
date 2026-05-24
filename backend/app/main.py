@@ -80,8 +80,9 @@ app.add_middleware(
     allow_origins=[
 
         "http://localhost:5173",
-
-        "http://127.0.0.1:5173"
+        "http://127.0.0.1:5173",
+        "https://*.vercel.app",         # All Vercel preview deployments
+        "https://finpilot-ai.vercel.app" # Your production Vercel URL (update if different)
     ],
 
     allow_credentials=True,
