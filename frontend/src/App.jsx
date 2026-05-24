@@ -6,6 +6,12 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 import { LayoutDashboard, Wallet, Upload, Bot, Send } from "lucide-react";
 
+// -----------------------------------
+// API BASE URL
+// -----------------------------------
+
+const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
 function App() {
   // -----------------------------------
   // STATES
@@ -47,7 +53,7 @@ function App() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/analytics");
+      const response = await axios.get(`${BASE_URL}/analytics`);
 
       setAnalytics(response.data);
     } catch (error) {
@@ -61,7 +67,7 @@ function App() {
 
   const fetchExpenses = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/expenses");
+      const response = await axios.get(`${BASE_URL}/expenses`);
 
       setExpenses(response.data);
     } catch (error) {
@@ -75,7 +81,7 @@ function App() {
 
   const fetchAlerts = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/alerts");
+      const response = await axios.get(`${BASE_URL}/alerts`);
 
       setAlerts(response.data.alerts);
     } catch (error) {
@@ -102,7 +108,7 @@ function App() {
 
       formData.append("file", selectedFile);
 
-      await axios.post("http://127.0.0.1:8000/api/upload", formData);
+      await axios.post(`${BASE_URL}/api/upload`, formData);
 
       setUploadMessage("Receipt uploaded successfully!");
 
@@ -145,7 +151,7 @@ function App() {
     setChatInput("");
 
     try {
-      const response = await axios.post("http://127.0.0.1:8000/chat", {
+      const response = await axios.post(`${BASE_URL}/chat`, {
         message: chatInput,
       });
 
