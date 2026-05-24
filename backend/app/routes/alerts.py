@@ -47,13 +47,13 @@ def get_alerts():
 
             alerts.append(
 
-                f"⚠️ High spending on {category}"
+                f"High spending on {category}"
             )
 
     if len(alerts) == 0:
 
         alerts.append(
-            "✅ Your spending looks healthy."
+            "Your spending looks healthy."
         )
 
     db.close()
