@@ -81,8 +81,8 @@ app.add_middleware(
 
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://*.vercel.app",         # All Vercel preview deployments
-        "https://finpilot-ai.vercel.app" # Your production Vercel URL (update if different)
+        "https://*.vercel.app",
+        "https://finpilot-ai-nine.vercel.app"
     ],
 
     allow_credentials=True,
