@@ -77,12 +77,15 @@ app.add_middleware(
 
     CORSMiddleware,
 
+    # FastAPI's CORSMiddleware does not support wildcard subdomains
+    # (e.g. https://*.vercel.app). Each Vercel deployment URL must be
+    # listed here explicitly.
     allow_origins=[
 
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://*.vercel.app",
-        "https://finpilot-ai-nine.vercel.app"
+        "https://finpilot-ai-nine.vercel.app",
+        "https://finpilot-ls1mzmttc-avilashs-projects-862e7c88.vercel.app"
     ],
 
     allow_credentials=True,
