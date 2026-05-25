@@ -81,7 +81,7 @@ app.add_middleware(
 
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://*.vercel.app",
+        "https://finpilot-ls1mzmttc-avilashs-projects-862e7c88.vercel.app",
         "https://finpilot-ai-nine.vercel.app"
     ],
 
