@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from groq import Groq
+import os
 
 from app.services.rag_service import (
     get_expense_context
@@ -8,17 +9,6 @@ from app.services.rag_service import (
 
 
 router = APIRouter()
-
-
-# -----------------------------------
-# GROQ SETUP
-# -----------------------------------
-
-GROQ_API_KEY = "key"
-
-client = Groq(
-    api_key=GROQ_API_KEY
-)
 
 
 # -----------------------------------
@@ -35,6 +25,17 @@ class ChatRequest(BaseModel):
 
 @router.post("/chat")
 def ai_chat(data: ChatRequest):
+
+    groq_api_key = os.getenv("GROQ_API_KEY")
+
+    if not groq_api_key:
+        return {
+            "reply": "AI is not configured yet. Please add GROQ_API_KEY in deployment environment variables."
+        }
+
+    client = Groq(
+        api_key=groq_api_key
+    )
 
     user_message = data.message
 

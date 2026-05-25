@@ -51,21 +51,15 @@ from app.routes.alerts import (
 # CREATE DATABASE TABLES
 # -----------------------------------
 
-Base.metadata.create_all(
-    bind=engine
-)
+Base.metadata.create_all(bind=engine)
 
 # -----------------------------------
 # FASTAPI APP
 # -----------------------------------
 
 app = FastAPI(
-
     title="FinPilot AI",
-
-    description=
-    "AI Powered Expense Intelligence Platform",
-
+    description="AI Powered Expense Intelligence Platform",
     version="4.0.0"
 )
 
@@ -74,24 +68,16 @@ app = FastAPI(
 # -----------------------------------
 
 app.add_middleware(
-
     CORSMiddleware,
-
-    # FastAPI's CORSMiddleware does not support wildcard subdomains
-    # (e.g. https://*.vercel.app). Each Vercel deployment URL must be
-    # listed here explicitly.
     allow_origins=[
-
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://finpilot-ai-nine.vercel.app",
-        "https://finpilot-ls1mzmttc-avilashs-projects-862e7c88.vercel.app"
+        "https://finpilot-ls1mzmttc-avilashs-projects-862e7c88.vercel.app",
+        "https://finpilot-ai-nine.vercel.app"
     ],
-
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
-
     allow_methods=["*"],
-
     allow_headers=["*"]
 )
 
@@ -101,14 +87,9 @@ app.add_middleware(
 
 @app.get("/")
 def home():
-
     return {
-
-        "message":
-        "FinPilot AI Running Successfully",
-
-        "status":
-        "success"
+        "message": "FinPilot AI Running Successfully",
+        "status": "success"
     }
 
 # -----------------------------------
@@ -117,42 +98,24 @@ def home():
 
 @app.get("/health")
 def health_check():
-
-    return {
-
-        "status":
-        "healthy"
-    }
+    return {"status": "healthy"}
 
 # -----------------------------------
-# VERSION CHECK
+# VERSION
 # -----------------------------------
 
 @app.get("/version")
 def version():
-
-    return {
-
-        "app":
-        "FinPilot AI",
-
-        "version":
-        "4.0.0"
-    }
+    return {"app": "FinPilot AI", "version": "4.0.0"}
 
 # -----------------------------------
 # UPLOAD ROUTES
 # -----------------------------------
 
 app.include_router(
-
     upload_router,
-
     prefix="/api",
-
-    tags=[
-        "Invoice Upload"
-    ]
+    tags=["Invoice Upload"]
 )
 
 # -----------------------------------
@@ -160,12 +123,14 @@ app.include_router(
 # -----------------------------------
 
 app.include_router(
-
     expenses_router,
+    tags=["Expenses"]
+)
 
-    tags=[
-        "Expenses"
-    ]
+app.include_router(
+    expenses_router,
+    prefix="/api",
+    tags=["Expenses API"]
 )
 
 # -----------------------------------
@@ -173,12 +138,14 @@ app.include_router(
 # -----------------------------------
 
 app.include_router(
-
     analytics_router,
+    tags=["Analytics"]
+)
 
-    tags=[
-        "Analytics"
-    ]
+app.include_router(
+    analytics_router,
+    prefix="/api",
+    tags=["Analytics API"]
 )
 
 # -----------------------------------
@@ -186,12 +153,14 @@ app.include_router(
 # -----------------------------------
 
 app.include_router(
-
     chat_router,
+    tags=["AI Chat"]
+)
 
-    tags=[
-        "AI Chat"
-    ]
+app.include_router(
+    chat_router,
+    prefix="/api",
+    tags=["AI Chat API"]
 )
 
 # -----------------------------------
@@ -199,12 +168,14 @@ app.include_router(
 # -----------------------------------
 
 app.include_router(
-
     budget_router,
+    tags=["Budget Planner"]
+)
 
-    tags=[
-        "Budget Planner"
-    ]
+app.include_router(
+    budget_router,
+    prefix="/api",
+    tags=["Budget Planner API"]
 )
 
 # -----------------------------------
@@ -212,12 +183,14 @@ app.include_router(
 # -----------------------------------
 
 app.include_router(
-
     forecast_router,
+    tags=["Forecast"]
+)
 
-    tags=[
-        "Forecast"
-    ]
+app.include_router(
+    forecast_router,
+    prefix="/api",
+    tags=["Forecast API"]
 )
 
 # -----------------------------------
@@ -225,10 +198,12 @@ app.include_router(
 # -----------------------------------
 
 app.include_router(
-
     alerts_router,
+    tags=["AI Alerts"]
+)
 
-    tags=[
-        "AI Alerts"
-    ]
+app.include_router(
+    alerts_router,
+    prefix="/api",
+    tags=["AI Alerts API"]
 )

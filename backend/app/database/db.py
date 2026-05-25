@@ -1,7 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import os
 
-DATABASE_URL = "sqlite:///./finpilot.db"
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    if os.getenv("VERCEL"):
+        DATABASE_URL = "sqlite:////tmp/finpilot.db"
+    else:
+        DATABASE_URL = "sqlite:///./finpilot.db"
 
 engine = create_engine(
     DATABASE_URL,
