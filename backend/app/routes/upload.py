@@ -3,8 +3,6 @@ from fastapi import UploadFile
 from fastapi import File
 from fastapi import HTTPException
 
-from PIL import Image
-
 from app.database.db import (
     SessionLocal
 )
@@ -13,8 +11,6 @@ from app.models.expense import (
     Expense
 )
 
-import pytesseract
-import platform
 import shutil
 import os
 
@@ -22,40 +18,21 @@ import os
 router = APIRouter()
 
 
-# ----------------------------
-# TESSERACT PATH
-# ----------------------------
-
-if platform.system() == "Windows":
-
-    pytesseract.pytesseract.tesseract_cmd = (
-        r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-    )
-
-else:
-
-    pytesseract.pytesseract.tesseract_cmd = (
-        "/usr/bin/tesseract"
-    )
-
-
-# ----------------------------
-# UPLOAD FOLDER
-# ----------------------------
+# -----------------------------------
+# UPLOAD DIRECTORY
+# -----------------------------------
 
 UPLOAD_DIR = "uploads"
 
 os.makedirs(
-
     UPLOAD_DIR,
-
     exist_ok=True
 )
 
 
-# ----------------------------
+# -----------------------------------
 # ALLOWED FILE TYPES
-# ----------------------------
+# -----------------------------------
 
 ALLOWED_EXTENSIONS = [
 
@@ -65,9 +42,9 @@ ALLOWED_EXTENSIONS = [
 ]
 
 
-# ----------------------------
-# UPLOAD ROUTE
-# ----------------------------
+# -----------------------------------
+# UPLOAD RECEIPT API
+# -----------------------------------
 
 @router.post("/upload")
 async def upload_invoice(
@@ -76,9 +53,9 @@ async def upload_invoice(
 
 ):
 
-    # ----------------------------
+    # -----------------------------------
     # VALIDATION
-    # ----------------------------
+    # -----------------------------------
 
     if not file.filename:
 
@@ -105,14 +82,14 @@ async def upload_invoice(
 
             status_code=400,
 
-            detail="Only PNG/JPG/JPEG files allowed"
+            detail="Only PNG/JPG/JPEG allowed"
         )
 
 
 
-    # ----------------------------
+    # -----------------------------------
     # FILE PATH
-    # ----------------------------
+    # -----------------------------------
 
     file_path = os.path.join(
 
@@ -125,9 +102,9 @@ async def upload_invoice(
 
     try:
 
-        # ----------------------------
+        # -----------------------------------
         # SAVE FILE
-        # ----------------------------
+        # -----------------------------------
 
         with open(
 
@@ -146,32 +123,29 @@ async def upload_invoice(
 
 
 
-        # ----------------------------
-        # OCR EXTRACTION
-        # ----------------------------
+        # -----------------------------------
+        # MOCK OCR TEXT
+        # -----------------------------------
 
-        image = Image.open(
-            file_path
-        )
+        extracted_text = """
 
-        image = image.convert(
-            "RGB"
-        )
+        DMart Invoice
 
+        Milk - 56
+        Bread - 35
+        Eggs - 78
+        Rice - 68
 
+        TOTAL = 587
+        Payment Mode = UPI
 
-        extracted_text = (
-
-            pytesseract.image_to_string(
-                image
-            )
-        )
+        """
 
 
 
-        # ----------------------------
+        # -----------------------------------
         # MOCK AI ANALYSIS
-        # ----------------------------
+        # -----------------------------------
 
         parsed_data = {
 
@@ -199,9 +173,9 @@ async def upload_invoice(
 
 
 
-        # ----------------------------
-        # DATABASE
-        # ----------------------------
+        # -----------------------------------
+        # DATABASE SAVE
+        # -----------------------------------
 
         db = SessionLocal()
 
@@ -271,9 +245,9 @@ async def upload_invoice(
 
 
 
-        # ----------------------------
+        # -----------------------------------
         # RESPONSE
-        # ----------------------------
+        # -----------------------------------
 
         return {
 
