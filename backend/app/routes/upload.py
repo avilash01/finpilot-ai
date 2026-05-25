@@ -5,10 +5,6 @@ from fastapi import HTTPException
 
 from PIL import Image
 
-from app.services.llm_service import (
-    smart_analysis
-)
-
 from app.database.db import (
     SessionLocal
 )
@@ -31,27 +27,47 @@ router = APIRouter()
 # ----------------------------
 
 if platform.system() == "Windows":
+
     pytesseract.pytesseract.tesseract_cmd = (
         r"C:\Program Files\Tesseract-OCR\tesseract.exe"
     )
-else:
-    pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 
+else:
+
+    pytesseract.pytesseract.tesseract_cmd = (
+        "/usr/bin/tesseract"
+    )
+
+
+# ----------------------------
+# UPLOAD FOLDER
+# ----------------------------
 
 UPLOAD_DIR = "uploads"
 
 os.makedirs(
+
     UPLOAD_DIR,
+
     exist_ok=True
 )
 
 
+# ----------------------------
+# ALLOWED FILE TYPES
+# ----------------------------
+
 ALLOWED_EXTENSIONS = [
+
     ".png",
     ".jpg",
     ".jpeg"
 ]
 
+
+# ----------------------------
+# UPLOAD ROUTE
+# ----------------------------
 
 @router.post("/upload")
 async def upload_invoice(
@@ -76,7 +92,9 @@ async def upload_invoice(
 
 
     ext = os.path.splitext(
+
         file.filename
+
     )[1].lower()
 
 
@@ -87,13 +105,13 @@ async def upload_invoice(
 
             status_code=400,
 
-            detail="Only PNG/JPG/JPEG allowed"
+            detail="Only PNG/JPG/JPEG files allowed"
         )
 
 
 
     # ----------------------------
-    # SAVE FILE
+    # FILE PATH
     # ----------------------------
 
     file_path = os.path.join(
@@ -106,6 +124,10 @@ async def upload_invoice(
 
 
     try:
+
+        # ----------------------------
+        # SAVE FILE
+        # ----------------------------
 
         with open(
 
@@ -139,6 +161,7 @@ async def upload_invoice(
 
 
         extracted_text = (
+
             pytesseract.image_to_string(
                 image
             )
@@ -147,17 +170,37 @@ async def upload_invoice(
 
 
         # ----------------------------
-        # AI ANALYSIS
+        # MOCK AI ANALYSIS
         # ----------------------------
 
-        parsed_data = smart_analysis(
-            extracted_text
-        )
+        parsed_data = {
+
+            "merchant": "DMart",
+
+            "category": "Groceries",
+
+            "amount": 587,
+
+            "payment_mode": "UPI",
+
+            "expense_date": "2026-05-26",
+
+            "insights":
+            "You spent on groceries at DMart.",
+
+            "pattern":
+            "Essential household shopping",
+
+            "saving_tip":
+            "Buy in bulk to save more money.",
+
+            "confidence_score": 95
+        }
 
 
 
         # ----------------------------
-        # DATABASE SAVE
+        # DATABASE
         # ----------------------------
 
         db = SessionLocal()
@@ -229,13 +272,12 @@ async def upload_invoice(
 
 
         # ----------------------------
-        # RETURN RESPONSE
+        # RESPONSE
         # ----------------------------
 
         return {
 
-            "status":
-            "success",
+            "status": "success",
 
             "filename":
             file.filename,
