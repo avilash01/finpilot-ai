@@ -1,702 +1,306 @@
-import React, { useEffect, useState } from "react";
-
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-
-import { LayoutDashboard, Wallet, Upload, Bot, Send } from "lucide-react";
-
-// -----------------------------------
-// API BASE URL
-// -----------------------------------
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  AlertTriangle,
+  Bot,
+  FileSearch,
+  LayoutDashboard,
+  Send,
+  ShieldCheck,
+  Upload,
+  Wallet,
+} from "lucide-react";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL;
+const BASE_URL = configuredApiUrl && !configuredApiUrl.includes("railway.app") ? configuredApiUrl : "";
+const COLORS = ["#7c3aed", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#14b8a6"];
 
-const BASE_URL = (
-  configuredApiUrl && !configuredApiUrl.includes("railway.app")
-    ? configuredApiUrl
-    : ""
-);
+function money(value) {
+  return `INR ${Number(value || 0).toLocaleString("en-IN")}`;
+}
 
 function App() {
-
-  // -----------------------------------
-  // STATES
-  // -----------------------------------
-
   const [expenses, setExpenses] = useState([]);
   const [analytics, setAnalytics] = useState({});
   const [alerts, setAlerts] = useState([]);
+  const [anomalies, setAnomalies] = useState([]);
+  const [report, setReport] = useState(null);
+  const [extractMessage, setExtractMessage] = useState("");
+  const [policyMessage, setPolicyMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [uploadMessage, setUploadMessage] = useState("");
+  const [batchCount, setBatchCount] = useState(1);
+  const [policyText, setPolicyText] = useState("Meals are reimbursable up to 1500 INR. Travel is reimbursable up to 5000 INR with business purpose.");
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState([
     {
       role: "assistant",
-      content: "Hello 👋 I am FinPilot AI. Ask me anything about your expenses.",
+      content: "I am FinPilot AI. Ask me about spend, anomalies, policy compliance, or forecasts.",
     },
   ]);
-  const [budget, setBudget] = useState(5000);
 
-  // -----------------------------------
-  // COLORS
-  // -----------------------------------
+  const fetchAll = async () => {
+    const [expensesRes, analyticsRes, alertsRes, anomaliesRes, reportRes] = await Promise.all([
+      axios.get(`${BASE_URL}/api/expenses`),
+      axios.get(`${BASE_URL}/api/analytics`),
+      axios.get(`${BASE_URL}/api/alerts`),
+      axios.get(`${BASE_URL}/api/anomalies`),
+      axios.get(`${BASE_URL}/api/report`),
+    ]);
 
-  const COLORS = ["#7c3aed", "#06b6d4", "#10b981", "#f59e0b", "#ef4444"];
-
-  // -----------------------------------
-  // FETCH ANALYTICS
-  // -----------------------------------
-
-  const fetchAnalytics = async () => {
-    try {
-      const response = await axios.get(`${BASE_URL}/api/analytics`);
-      setAnalytics(response.data);
-    } catch (error) {
-      console.log(error);
-    }
+    setExpenses(expensesRes.data);
+    setAnalytics(analyticsRes.data);
+    setAlerts(alertsRes.data.alerts || []);
+    setAnomalies(anomaliesRes.data.anomalies || []);
+    setReport(reportRes.data);
   };
 
-  // -----------------------------------
-  // FETCH EXPENSES
-  // -----------------------------------
+  useEffect(() => {
+    fetchAll().catch(console.log);
+  }, []);
 
-  const fetchExpenses = async () => {
-    try {
-      const response = await axios.get(`${BASE_URL}/api/expenses`);
-      setExpenses(response.data);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  // -----------------------------------
-  // FETCH ALERTS
-  // -----------------------------------
-
-  const fetchAlerts = async () => {
-    try {
-      const response = await axios.get(`${BASE_URL}/api/alerts`);
-      setAlerts(response.data.alerts);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  // -----------------------------------
-  // UPLOAD RECEIPT - FIXED
-  // -----------------------------------
+  const categoryData = useMemo(
+    () => Object.entries(analytics.category_breakdown || {}).map(([name, value]) => ({ name, value })),
+    [analytics]
+  );
 
   const uploadReceipt = async () => {
-
-    if (!selectedFile) {
-      alert("Please select a file first");
-      return;
-    }
+    setLoading(true);
+    setExtractMessage("");
 
     try {
+      const response = await axios.post(`${BASE_URL}/api/extract`, {
+        filename: selectedFile?.name || "receipt.png",
+        text: selectedFile?.name || "DMart invoice total 587 INR UPI",
+        batch_count: batchCount,
+      });
 
-      setLoading(true);
-      setUploadMessage("");
-
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-
-      const response = await axios.post(
-        `${BASE_URL}/api/upload`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-
-      setUploadMessage(
-        response.data.message || "Receipt uploaded successfully!"
-      );
-
+      setExtractMessage(response.data.message);
       setSelectedFile(null);
-
-      fetchAnalytics();
-      fetchExpenses();
-      fetchAlerts();
-
-      const fileInput = document.getElementById("receipt-input");
-      if (fileInput) fileInput.value = "";
-
+      const input = document.getElementById("receipt-input");
+      if (input) input.value = "";
+      await fetchAll();
     } catch (error) {
-
-      console.log(error);
-
-      setUploadMessage(
-        error.response?.data?.detail || "Upload failed"
-      );
-
+      setExtractMessage(error.response?.data?.detail || "Extraction failed");
     } finally {
       setLoading(false);
     }
   };
 
-  // -----------------------------------
-  // AI CHAT
-  // -----------------------------------
+  const ingestPolicy = async () => {
+    setPolicyMessage("");
+
+    try {
+      const response = await axios.post(`${BASE_URL}/api/ingest-policy`, {
+        title: "Company Expense Policy",
+        text: policyText,
+        categories: ["Travel", "Food", "Office", "Software"],
+        limit: 5000,
+      });
+
+      setPolicyMessage(`Indexed ${response.data.chunks_indexed} policy chunks into ${response.data.vector_store}.`);
+      await fetchAll();
+    } catch (error) {
+      setPolicyMessage(error.response?.data?.detail || "Policy ingest failed");
+    }
+  };
 
   const sendMessage = async () => {
-
     if (!chatInput.trim()) return;
 
-    const userMessage = {
-      role: "user",
-      content: chatInput,
-    };
-
-    setChatMessages((prev) => [...prev, userMessage]);
+    const message = chatInput;
+    setChatMessages((current) => [...current, { role: "user", content: message }]);
     setChatInput("");
 
     try {
-
-      const response = await axios.post(`${BASE_URL}/api/chat`, {
-        message: chatInput,
+      const response = await axios.post(`${BASE_URL}/api/agent`, {
+        query: message,
       });
 
-      const aiMessage = {
-        role: "assistant",
-        content: response.data.reply,
-      };
-
-      setChatMessages((prev) => [...prev, aiMessage]);
-
-    } catch (error) {
-
-      console.log(error);
-
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "Could not connect to AI.",
-        },
-      ]);
+      setChatMessages((current) => [...current, { role: "assistant", content: response.data.reply }]);
+    } catch {
+      setChatMessages((current) => [...current, { role: "assistant", content: "Agent is not reachable right now." }]);
     }
   };
-
-  // -----------------------------------
-  // SAVE BUDGET
-  // -----------------------------------
-
-  const saveBudget = () => {
-    localStorage.setItem("finpilot_budget", budget);
-    alert("Budget Saved!");
-  };
-
-  // -----------------------------------
-  // HANDLE ENTER KEY
-  // -----------------------------------
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      sendMessage();
-    }
-  };
-
-  // -----------------------------------
-  // LOAD DATA
-  // -----------------------------------
-
-  useEffect(() => {
-    fetchAnalytics();
-    fetchExpenses();
-    fetchAlerts();
-
-    const savedBudget = localStorage.getItem("finpilot_budget");
-    if (savedBudget) {
-      setBudget(Number(savedBudget));
-    }
-  }, []);
-
-  // -----------------------------------
-  // PIE DATA
-  // -----------------------------------
-
-  const pieData = expenses.map((expense) => ({
-    name: expense.category,
-    value: expense.amount,
-  }));
-
-  // -----------------------------------
-  // UI
-  // -----------------------------------
 
   return (
-    <div
-      style={{
-        background: "#020617",
-        minHeight: "100vh",
-        display: "flex",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
+    <div style={{ minHeight: "100vh", display: "flex", background: "#020617", color: "white", fontFamily: "Arial, sans-serif" }}>
+      <aside style={{ width: 280, background: "#081028", padding: 32, borderRight: "1px solid #1e293b", position: "sticky", top: 0, height: "100vh" }}>
+        <h1 style={{ color: "#8b5cf6", fontSize: 42, marginBottom: 50 }}>FinPilot AI</h1>
+        {[
+          [LayoutDashboard, "Dashboard"],
+          [FileSearch, "Extraction"],
+          [ShieldCheck, "Policy RAG"],
+          [AlertTriangle, "Anomalies"],
+          [Bot, "Agent"],
+        ].map(([Icon, label]) => (
+          <div key={label} style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 34, fontSize: 20 }}>
+            <Icon size={25} />
+            {label}
+          </div>
+        ))}
+      </aside>
 
-      {/* SIDEBAR */}
+      <main style={{ flex: 1, padding: 36 }}>
+        <h1 style={{ fontSize: 58, margin: "0 0 28px" }}>AI Expense Intelligence</h1>
 
-      <div
-        style={{
-          width: "280px",
-          background: "#081028",
-          color: "white",
-          padding: "40px 30px",
-          borderRight: "1px solid #1e293b",
-          position: "sticky",
-          top: 0,
-          height: "100vh",
-        }}
-      >
-        <h1
-          style={{
-            color: "#8b5cf6",
-            fontSize: "40px",
-            marginBottom: "80px",
-          }}
-        >
-          FinPilot AI
-        </h1>
-
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "45px",
-            fontSize: "20px",
-          }}
-        >
+        <section style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 18 }}>
           {[
-            { icon: <LayoutDashboard />, label: "Dashboard" },
-            { icon: <Wallet />,          label: "Expenses"  },
-            { icon: <Upload />,          label: "Uploads"   },
-            { icon: <Bot />,             label: "AI Assistant" },
-          ].map(({ icon, label }) => (
-            <div
-              key={label}
-              style={{
-                display: "flex",
-                gap: "18px",
-                alignItems: "center",
-                padding: "10px",
-                borderRadius: "12px",
-              }}
-            >
-              {icon}
-              {label}
+            ["Total Spend", money(analytics.total_spending), Wallet],
+            ["Transactions", analytics.total_records || 0, Upload],
+            ["Compliance", `${analytics.compliance_score || 0}%`, ShieldCheck],
+            ["Anomalies", analytics.anomaly_count || 0, AlertTriangle],
+          ].map(([label, value, Icon]) => (
+            <div key={label} style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 18, padding: 24 }}>
+              <Icon color="#8b5cf6" />
+              <p style={{ color: "#94a3b8" }}>{label}</p>
+              <h2 style={{ fontSize: 34, margin: 0 }}>{value}</h2>
             </div>
           ))}
-        </div>
-      </div>
+        </section>
 
-      {/* MAIN */}
+        <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22, marginTop: 24 }}>
+          <Panel title="Spend Breakdown">
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie data={categoryData} dataKey="value" nameKey="name" outerRadius={105}>
+                  {categoryData.map((entry, index) => (
+                    <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </Panel>
 
-      <div style={{ flex: 1, padding: "40px" }}>
+          <Panel title="Month-over-Month Trend">
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={analytics.monthly_trend || []}>
+                <CartesianGrid stroke="#1e293b" />
+                <XAxis dataKey="month" stroke="#94a3b8" />
+                <YAxis stroke="#94a3b8" />
+                <Tooltip />
+                <Line type="monotone" dataKey="amount" stroke="#06b6d4" strokeWidth={3} />
+              </LineChart>
+            </ResponsiveContainer>
+          </Panel>
+        </section>
 
-        <h1
-          style={{
-            color: "white",
-            fontSize: "70px",
-            textAlign: "center",
-            marginBottom: "40px",
-          }}
-        >
-          AI Expense Dashboard
-        </h1>
+        <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22, marginTop: 24 }}>
+          <Panel title="Structured Extraction">
+            <p style={{ color: "#94a3b8" }}>Upload a receipt image/PDF or run batch extraction. The API returns JSON with vendor, amount, category, date, and currency.</p>
+            <input id="receipt-input" type="file" accept="image/*,.pdf" onChange={(event) => setSelectedFile(event.target.files?.[0])} style={{ color: "white", marginTop: 10 }} />
+            <div style={{ display: "flex", gap: 12, marginTop: 18 }}>
+              <input type="number" min="1" max="8" value={batchCount} onChange={(event) => setBatchCount(Number(event.target.value))} style={inputStyle} />
+              <button onClick={uploadReceipt} disabled={loading} style={buttonStyle}>{loading ? "Extracting..." : "Extract Receipt"}</button>
+            </div>
+            {extractMessage && <p style={{ color: "#22c55e" }}>{extractMessage}</p>}
+          </Panel>
 
-        {/* ANALYTICS CARDS */}
+          <Panel title="Policy RAG">
+            <textarea value={policyText} onChange={(event) => setPolicyText(event.target.value)} rows={5} style={{ ...inputStyle, width: "100%", resize: "vertical" }} />
+            <button onClick={ingestPolicy} style={{ ...buttonStyle, marginTop: 14 }}>Ingest Policy PDF Text</button>
+            {policyMessage && <p style={{ color: "#22c55e" }}>{policyMessage}</p>}
+          </Panel>
+        </section>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "30px",
-          }}
-        >
-          <div style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", padding: "40px", borderRadius: "30px", color: "white", textAlign: "center" }}>
-            <h2>Total Spending</h2>
-            <h1 style={{ fontSize: "70px" }}>₹{analytics.total_spending || 0}</h1>
-          </div>
-
-          <div style={{ background: "linear-gradient(135deg,#06b6d4,#0891b2)", padding: "40px", borderRadius: "30px", color: "white", textAlign: "center" }}>
-            <h2>Total Records</h2>
-            <h1 style={{ fontSize: "70px" }}>{analytics.total_records || 0}</h1>
-          </div>
-
-          <div style={{ background: "linear-gradient(135deg,#10b981,#059669)", padding: "40px", borderRadius: "30px", color: "white", textAlign: "center" }}>
-            <h2>Top Category</h2>
-            <h1 style={{ fontSize: "55px" }}>{analytics.top_category || "None"}</h1>
-          </div>
-
-          <div style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)", padding: "40px", borderRadius: "30px", color: "white", textAlign: "center" }}>
-            <h2>Average Spending</h2>
-            <h1 style={{ fontSize: "70px" }}>₹{analytics.average_spending || 0}</h1>
-          </div>
-        </div>
-
-        {/* CHART + UPLOAD */}
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "40px",
-            marginTop: "50px",
-          }}
-        >
-
-          {/* PIE CHART */}
-
-          <div
-            style={{
-              background: "#0f172a",
-              borderRadius: "30px",
-              padding: "30px",
-              height: "450px",
-            }}
-          >
-            <h2 style={{ color: "white", textAlign: "center" }}>
-              Expense Distribution
-            </h2>
-
-            {pieData.length === 0 ? (
-              <div style={{ color: "#475569", textAlign: "center", marginTop: "120px" }}>
-                No expense data
+        <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22, marginTop: 24 }}>
+          <Panel title="Anomaly Alerts">
+            {anomalies.length === 0 ? <p style={{ color: "#94a3b8" }}>No red flags right now.</p> : anomalies.map((item) => (
+              <div key={item.id} style={{ border: "1px solid #ef4444", borderRadius: 12, padding: 14, marginBottom: 12 }}>
+                <strong>{item.vendor}</strong> - {money(item.amount)}
+                <p style={{ color: "#fca5a5" }}>{item.anomaly.reason}</p>
               </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="90%">
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={120}>
-                    {pieData.map((entry, index) => (
-                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
+            ))}
+            {alerts.map((alert) => <p key={alert} style={{ color: "#f59e0b" }}>{alert}</p>)}
+          </Panel>
 
-          {/* UPLOAD */}
+          <Panel title="CFO Report">
+            <p style={{ color: "#cbd5e1" }}>{report?.summary}</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={report?.category_summary || []}>
+                <CartesianGrid stroke="#1e293b" />
+                <XAxis dataKey="category" stroke="#94a3b8" />
+                <YAxis stroke="#94a3b8" />
+                <Tooltip />
+                <Bar dataKey="amount" fill="#8b5cf6" />
+              </BarChart>
+            </ResponsiveContainer>
+          </Panel>
+        </section>
 
-          <div
-            style={{
-              background: "#0f172a",
-              borderRadius: "30px",
-              padding: "40px",
-              border: "2px dashed #8b5cf6",
-              textAlign: "center",
-            }}
-          >
-            <Upload size={80} color="#8b5cf6" />
-
-            <h2 style={{ color: "white" }}>Upload Receipt</h2>
-
-            <p style={{ color: "#94a3b8" }}>Select your receipt image</p>
-
-            <input
-              id="receipt-input"
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                setSelectedFile(e.target.files[0]);
-                setUploadMessage("");
-              }}
-              style={{ marginTop: "20px", color: "white" }}
-            />
-
-            {selectedFile && (
-              <p style={{ color: "#94a3b8", marginTop: "10px", fontSize: "14px" }}>
-                Selected: {selectedFile.name}
-              </p>
-            )}
-
-            <button
-              onClick={uploadReceipt}
-              disabled={loading || !selectedFile}
-              style={{
-                marginTop: "30px",
-                padding: "16px 30px",
-                borderRadius: "15px",
-                border: "none",
-                background: loading || !selectedFile ? "#4b5563" : "#8b5cf6",
-                color: "white",
-                fontSize: "18px",
-                cursor: loading || !selectedFile ? "not-allowed" : "pointer",
-              }}
-            >
-              {loading ? "Uploading..." : "Upload Receipt"}
-            </button>
-
-            {uploadMessage && (
-              <p
-                style={{
-                  marginTop: "20px",
-                  color: uploadMessage.includes("failed") || uploadMessage.includes("Error")
-                    ? "#ef4444"
-                    : "#22c55e",
-                }}
-              >
-                {uploadMessage}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* BUDGET PLANNER */}
-
-        <div
-          style={{
-            background: "#111c3d",
-            borderRadius: "30px",
-            padding: "40px",
-            marginTop: "50px",
-          }}
-        >
-          <h1 style={{ color: "white", textAlign: "center", fontSize: "50px" }}>
-            Budget Planner
-          </h1>
-
-          <div
-            style={{
-              display: "flex",
-              gap: "20px",
-              justifyContent: "center",
-              marginTop: "30px",
-            }}
-          >
-            <input
-              type="number"
-              value={budget}
-              onChange={(e) => setBudget(Number(e.target.value))}
-              style={{
-                padding: "18px",
-                width: "300px",
-                borderRadius: "15px",
-                border: "none",
-                background: "#1e293b",
-                color: "white",
-                fontSize: "18px",
-              }}
-            />
-
-            <button
-              onClick={saveBudget}
-              style={{
-                padding: "18px 30px",
-                borderRadius: "15px",
-                border: "none",
-                background: "#8b5cf6",
-                color: "white",
-                fontSize: "18px",
-                cursor: "pointer",
-              }}
-            >
-              Save Budget
-            </button>
-          </div>
-
-          <div style={{ marginTop: "40px", textAlign: "center", color: "white" }}>
-            <h2>Monthly Budget: ₹{budget}</h2>
-            <h2>Total Spending: ₹{analytics.total_spending || 0}</h2>
-            <h2
-              style={{
-                color: (analytics.total_spending || 0) > budget ? "#ef4444" : "#22c55e",
-              }}
-            >
-              Remaining: ₹{budget - (analytics.total_spending || 0)}
-            </h2>
-          </div>
-        </div>
-
-        {/* AI SMART ALERTS */}
-
-        <div
-          style={{
-            background: "#111c3d",
-            borderRadius: "30px",
-            padding: "40px",
-            marginTop: "50px",
-          }}
-        >
-          <h1
-            style={{
-              color: "white",
-              textAlign: "center",
-              fontSize: "50px",
-              marginBottom: "30px",
-            }}
-          >
-            AI Smart Alerts
-          </h1>
-
-          {alerts.length === 0 ? (
-            <div style={{ textAlign: "center", color: "#94a3b8", fontSize: "20px" }}>
-              No alerts right now
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-              {alerts.map((alert, index) => (
-                <div
-                  key={index}
-                  style={{
-                    background: "#1e293b",
-                    padding: "25px",
-                    borderRadius: "20px",
-                    color: "#f59e0b",
-                    fontSize: "20px",
-                    border: "1px solid #f59e0b",
-                  }}
-                >
-                  ⚠️ {alert}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* AI CHAT */}
-
-        <div
-          style={{
-            background: "#111c3d",
-            borderRadius: "30px",
-            padding: "40px",
-            marginTop: "50px",
-          }}
-        >
-          <h1 style={{ color: "white", textAlign: "center", fontSize: "50px" }}>
-            AI Financial Assistant
-          </h1>
-
-          <div
-            style={{
-              height: "400px",
-              overflowY: "auto",
-              marginTop: "30px",
-              padding: "20px",
-            }}
-          >
-            {chatMessages.map((msg, index) => (
-              <div
-                key={index}
-                style={{
-                  display: "flex",
-                  justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-                  marginBottom: "20px",
-                }}
-              >
-                <div
-                  style={{
-                    background: msg.role === "user" ? "#8b5cf6" : "#1e293b",
-                    color: "white",
-                    padding: "20px",
-                    borderRadius: "20px",
-                    maxWidth: "70%",
-                    fontSize: "16px",
-                    lineHeight: "1.6",
-                  }}
-                >
-                  {msg.content}
+        <Panel title="AI Agent with Tools" style={{ marginTop: 24 }}>
+          <div style={{ minHeight: 240, maxHeight: 360, overflowY: "auto", paddingRight: 8 }}>
+            {chatMessages.map((message, index) => (
+              <div key={`${message.role}-${index}`} style={{ display: "flex", justifyContent: message.role === "user" ? "flex-end" : "flex-start", marginBottom: 14 }}>
+                <div style={{ maxWidth: "72%", background: message.role === "user" ? "#7c3aed" : "#1e293b", padding: 16, borderRadius: 14, lineHeight: 1.55 }}>
+                  {message.content}
                 </div>
               </div>
             ))}
           </div>
-
-          <div style={{ display: "flex", gap: "20px", marginTop: "20px" }}>
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask AI about your expenses..."
-              style={{
-                flex: 1,
-                padding: "22px",
-                borderRadius: "20px",
-                border: "none",
-                background: "#1e293b",
-                color: "white",
-                fontSize: "18px",
-              }}
-            />
-
-            <button
-              onClick={sendMessage}
-              style={{
-                padding: "20px 30px",
-                borderRadius: "20px",
-                border: "none",
-                background: "#8b5cf6",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              <Send size={30} />
-            </button>
+          <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
+            <input value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={(event) => event.key === "Enter" && sendMessage()} placeholder="Ask: forecast next month, summarize categories, check compliance..." style={{ ...inputStyle, flex: 1 }} />
+            <button onClick={sendMessage} style={buttonStyle}><Send size={22} /></button>
           </div>
-        </div>
+        </Panel>
 
-        {/* RECENT EXPENSES */}
-
-        <div style={{ marginTop: "50px" }}>
-          <h1
-            style={{
-              color: "white",
-              textAlign: "center",
-              fontSize: "60px",
-              marginBottom: "30px",
-            }}
-          >
-            Recent Expenses
-          </h1>
-
-          {expenses.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                color: "#475569",
-                padding: "60px",
-                background: "#111c3d",
-                borderRadius: "25px",
-              }}
-            >
-              No expenses yet. Upload a receipt to get started.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "25px" }}>
-              {expenses.map((expense, index) => (
-                <div
-                  key={index}
-                  style={{
-                    background: "#111c3d",
-                    padding: "30px",
-                    borderRadius: "25px",
-                    color: "white",
-                    border: "1px solid #1e293b",
-                  }}
-                >
-                  <h1 style={{ color: "#8b5cf6" }}>{expense.category}</h1>
-                  <h1 style={{ fontSize: "55px" }}>₹{expense.amount}</h1>
-                  <p>{expense.insights}</p>
-                  <p><b>Pattern:</b> {expense.pattern}</p>
-                  <p><b>Saving Tip:</b> {expense.saving_tip}</p>
-                  <p style={{ color: "#64748b" }}>
-                    {expense.merchant} · {expense.expense_date} · {expense.payment_mode}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-      </div>
+        <Panel title="Transactions" style={{ marginTop: 24 }}>
+          <div style={{ display: "grid", gap: 12 }}>
+            {expenses.map((expense) => (
+              <div key={expense.id} style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr", gap: 12, background: "#0f172a", border: "1px solid #1e293b", borderRadius: 12, padding: 16 }}>
+                <div><strong>{expense.vendor || expense.merchant}</strong><p style={{ color: "#94a3b8" }}>{expense.date || expense.expense_date}</p></div>
+                <div>{expense.category}<p style={{ color: "#94a3b8" }}>{expense.currency || "INR"}</p></div>
+                <div>{money(expense.amount)}<p style={{ color: expense.policy?.reimbursable ? "#22c55e" : "#f59e0b" }}>{expense.policy?.reimbursable ? "Reimbursable" : "Needs review"}</p></div>
+                <div style={{ color: expense.anomaly?.flagged ? "#ef4444" : "#22c55e" }}>{expense.anomaly?.flagged ? "Flagged" : "Normal"}</div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </main>
     </div>
+  );
+}
+
+const inputStyle = {
+  background: "#1e293b",
+  border: "1px solid #334155",
+  borderRadius: 12,
+  color: "white",
+  padding: "14px 16px",
+  fontSize: 16,
+};
+
+const buttonStyle = {
+  background: "#8b5cf6",
+  border: "none",
+  borderRadius: 12,
+  color: "white",
+  cursor: "pointer",
+  fontSize: 16,
+  padding: "14px 20px",
+};
+
+function Panel({ title, children, style }) {
+  return (
+    <section style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 18, padding: 24, ...style }}>
+      <h2 style={{ marginTop: 0 }}>{title}</h2>
+      {children}
+    </section>
   );
 }
 
