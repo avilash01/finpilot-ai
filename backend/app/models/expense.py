@@ -47,7 +47,3 @@ class Expense(Base):
     saving_tip = Column(
         String
     )
-
-    confidence_score = Column(
-        Float
-    )

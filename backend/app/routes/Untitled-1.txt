@@ -1,0 +1,15 @@
+Error Details:
+- Category: unknown
+- Severity: critical
+- Message: Bad batch header: Microsoft Windows [Version 10.0.26200.8457]
+- Stack: Error: Bad batch header: Microsoft Windows [Version 10.0.26200.8457]
+    at zi.parseBatchStdout (c:\Users\avila\.vscode\extensions\solomonkinard.git-blame-0.2.96\out\extension.js:12:220)
+    at zi.populateForLines (c:\Users\avila\.vscode\extensions\solomonkinard.git-blame-0.2.96\out\extension.js:7:10357)
+    at Ji.parseLines (c:\Users\avila\.vscode\extensions\solomonkinard.git-blame-0.2.96\out\extension.js:13:263)
+    at Ji.readHashedFile (c:\Users\avila\.vscode\extensions\solomonkinard.git-blame-0.2.96\out\extension.js:12:993)
+    at Yi.getCache (c:\Users\avila\.vscode\extensions\solomonkinard.git-blame-0.2.96\out\extension.js:16:342)
+    at oi.backgroundBlame (c:\Users\avila\.vscode\extensions\solomonkinard.git-blame-0.2.96\out\extension.js:16:3677)
+    at Gr (c:\Users\avila\.vscode\extensions\solomonkinard.git-blame-0.2.96\out\extension.js:18:2323)
+    at c:\Users\avila\.vscode\extensions\solomonkinard.git-blame-0.2.96\out\extension.js:18:3737
+- Session ID: session-1779687488877-z3azj2kwwop
+- Timestamp: 2026-05-25T05:44:14.485Z
